@@ -1,0 +1,129 @@
+{
+  "data_audit": {
+    "rows": 20640,
+    "columns": 9,
+    "dtypes_all_numeric": true,
+    "missing_total": 0,
+    "duplicate_rows": 0,
+    "target_capped_rows": 992,
+    "target_capped_pct": 4.81,
+    "house_age_capped_rows": 1273,
+    "extreme_outliers": {
+      "AveRooms": {
+        "max": 141.9090909090909,
+        "n_above_3IQR": 180
+      },
+      "AveBedrms": {
+        "max": 34.06666666666667,
+        "n_above_3IQR": 692
+      },
+      "Population": {
+        "max": 35682.0,
+        "n_above_3IQR": 421
+      },
+      "AveOccup": {
+        "max": 1243.3333333333333,
+        "n_above_3IQR": 132
+      }
+    }
+  },
+  "top_correlations": {
+    "MedInc": 0.688,
+    "DistNearestCity": -0.437,
+    "RoomsPerPerson": 0.341,
+    "AveOccup": -0.269,
+    "BedroomRatio": -0.267,
+    "AveRooms": 0.25
+  },
+  "split_sizes": {
+    "train": 14448,
+    "val": 3096,
+    "test": 3096
+  },
+  "best_params": {
+    "model__min_samples_leaf": 20,
+    "model__max_leaf_nodes": 63,
+    "model__max_iter": 400,
+    "model__learning_rate": 0.05,
+    "model__l2_regularization": 0.1
+  },
+  "validation_table": {
+    "Baseline: predict median": {
+      "RMSE": 1.1740436319491214,
+      "MAE": 0.8766076873385013,
+      "R2": -0.05803849337439693,
+      "CV_RMSE_mean": 1.189926591799233,
+      "CV_RMSE_std": 0.019010708984006298
+    },
+    "Baseline: Ridge regression": {
+      "RMSE": 0.6513814994142616,
+      "MAE": 0.4693713977575528,
+      "R2": 0.674310443349024,
+      "CV_RMSE_mean": 0.6432299985325447,
+      "CV_RMSE_std": 0.011866413660364365
+    },
+    "Random Forest": {
+      "RMSE": 0.48279940934126253,
+      "MAE": 0.30690375000050935,
+      "R2": 0.8210768835118536,
+      "CV_RMSE_mean": 0.4813082854658922,
+      "CV_RMSE_std": 0.011479510549285251
+    },
+    "Gradient Boosting (default)": {
+      "RMSE": 0.462174864397784,
+      "MAE": 0.3013849439038592,
+      "R2": 0.836037081953933,
+      "CV_RMSE_mean": 0.4650268209588309,
+      "CV_RMSE_std": 0.012318744857859255
+    },
+    "Gradient Boosting (tuned)": {
+      "RMSE": 0.44477093430400516,
+      "MAE": 0.28219939037503167,
+      "R2": 0.8481531487080872,
+      "CV_RMSE_mean": 0.4546228775884331,
+      "CV_RMSE_std": NaN
+    }
+  },
+  "final_model": "Gradient Boosting (tuned)",
+  "test_metrics": {
+    "RMSE": 0.4137464550634005,
+    "MAE": 0.27442109584696855,
+    "R2": 0.8705401346534801
+  },
+  "test_baseline_median_RMSE": 1.1818709119051427,
+  "random_cv_RMSE": 0.43915423960571703,
+  "spatial_cv_RMSE": 0.7140445318759424,
+  "error_by_price_band": [
+    {
+      "bin": "<$150k",
+      "n": 1137,
+      "MAE": 0.194,
+      "mean_residual": -0.131
+    },
+    {
+      "bin": "$150-300k",
+      "n": 1386,
+      "MAE": 0.254,
+      "mean_residual": -0.028
+    },
+    {
+      "bin": "$300-450k",
+      "n": 385,
+      "MAE": 0.444,
+      "mean_residual": 0.154
+    },
+    {
+      "bin": "$450k+ (capped)",
+      "n": 188,
+      "MAE": 0.56,
+      "mean_residual": 0.523
+    }
+  ],
+  "top_permutation_importance": {
+    "Latitude": 0.618,
+    "Longitude": 0.553,
+    "MedInc": 0.406,
+    "AveOccup": 0.194,
+    "AveRooms": 0.149
+  }
+}
