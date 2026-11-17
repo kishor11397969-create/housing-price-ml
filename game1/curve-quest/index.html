@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Curve Quest: learn overfitting by playing</title>
+<style>
+:root{--bg:#eef3f7;--card:#fff;--ink:#14202e;--mut:#5b6b7c;--line:#d5dee7;--tr:#1d6fe0;--te:#e8590c;--ok:#13873f;--bad:#c92a2a;--ac:#6d28d9;--grid:#e6ecf2;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1720;--card:#17222f;--ink:#e8eef5;--mut:#98a8b9;--line:#2a3a4b;--tr:#5aa2ff;--te:#ff944d;--ok:#4cc97c;--bad:#ff7b7b;--ac:#b08cff;--grid:#223142}}
+:root[data-theme="dark"]{--bg:#0f1720;--card:#17222f;--ink:#e8eef5;--mut:#98a8b9;--line:#2a3a4b;--tr:#5aa2ff;--te:#ff944d;--ok:#4cc97c;--bad:#ff7b7b;--ac:#b08cff;--grid:#223142}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Trebuchet MS","Segoe UI",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:14px}
+h1{font:800 2rem/1.1 Georgia,"Times New Roman",serif;margin:6px 0 2px;letter-spacing:-.02em}
+h2{font-size:1.15rem;margin:0 0 4px}
+p{margin:6px 0}.mut{color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.hud{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.pill{border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:.85rem;background:var(--card)}
+canvas{width:100%;height:auto;display:block;border-radius:8px;background:var(--card);border:1px solid var(--line)}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0}
+.stat{border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:center}
+.stat b{display:block;font-size:1.25rem}.stat span{font-size:.78rem;color:var(--mut)}
+label{display:block;font-weight:700;margin-top:10px}
+input[type=range]{width:100%;accent-color:var(--ac)}
+button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:9px 14px;margin:4px 6px 0 0;background:var(--ac);color:#fff;cursor:pointer}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--tr);outline-offset:2px}
+.fb{border-left:5px solid var(--ac)}.fb.over{border-color:var(--te)}.fb.under{border-color:var(--tr)}.fb.good{border-color:var(--ok)}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:1px 8px;margin:2px 4px 2px 0;font-size:.82rem}
+.tabs button{background:transparent;color:var(--ink);border:1px solid var(--line)}.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.pane{display:none}.pane.on{display:block}
+input[type=text],select,textarea{font:inherit;width:100%;box-sizing:border-box;padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:.85rem}td,th{border-bottom:1px solid var(--line);padding:3px 5px;text-align:left}
+.scroll{overflow-x:auto}.lg{font-size:.82rem;color:var(--mut)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 3px 0 8px}
+</style></head><body><main class="wrap">
+<h1>Curve Quest</h1>
+<p class="mut">Fit a curve to messy data. Your model has to survive data it has never seen. Learn overfitting, bias–variance, sample size and regularisation by playing.</p>
+<div class="hud"><span class="pill" id="hLv"></span><span class="pill" id="hStars"></span><span class="pill" id="hSub"></span><span class="pill" id="hTok"></span></div>
+
+<section class="card" id="brief"></section>
+
+<section class="card">
+<canvas id="c" width="640" height="340" aria-label="Scatter plot with your fitted curve"></canvas>
+<div class="lg"><span class="sw" style="background:var(--tr)"></span>training points<span class="sw" style="background:var(--te)"></span>hidden test points (revealed on submit)<span class="sw" style="background:var(--ac)"></span>your model</div>
+<div class="row">
+<div class="stat"><b id="sTr">–</b><span>training error (MSE)</span></div>
+<div class="stat"><b id="sTe">?</b><span>test error (MSE)</span></div>
+<div class="stat"><b id="sPar">–</b><span>knobs vs data points</span></div></div>
+<label for="deg">Model flexibility (polynomial degree): <span id="vDeg"></span></label>
+<input type="range" id="deg" min="0" max="15" value="1">
+<div id="lamBox"><label for="lam">Regularisation strength (penalty on wiggles): <span id="vLam"></span></label>
+<input type="range" id="lam" min="0" max="5" value="0"></div>
+<button id="bSub">Submit model to the test set</button>
+<button class="alt" id="bBuy">Collect 6 more points (1 token)</button>
+<button class="alt" id="bNew">Reshuffle data</button>
+<button id="bNext" style="display:none">Next level</button>
+</section>
+
+<section class="card fb" id="fb"><b>Your turn.</b> Drag the flexibility slider and watch the training error. Then decide when to trust it and submit.</section>
+
+<section class="card" id="curveCard" style="display:none">
+<h2>The error curve you just uncovered</h2>
+<p class="mut">Training error (blue) keeps falling as flexibility rises. Test error (orange) falls, then climbs again. The bottom of the orange curve is the sweet spot. Dashed line is your current degree.</p>
+<canvas id="c2" width="640" height="220" aria-label="Training and test error against degree"></canvas>
+<div id="hist"></div>
+</section>
+
+<section class="card">
+<div class="tabs"><button class="on" data-t="how">How to play</button><button data-t="obj">Learning objectives</button><button data-t="pt">Playtest log</button></div>
+<div class="pane on" id="how">
+<p><b>Goal.</b> On each level, choose a model that predicts <em>new</em> data well. You earn up to 3 stars by getting close to the best possible test error.</p>
+<p><b>Rules.</b> 1) The blue dots are your training data. 2) Move the sliders to change the purple curve. 3) Submit to score your model on fresh hidden points. You get a limited number of submits per level, and every submit uses a new hidden sample, so you cannot memorise the test set. 4) Earn at least 1 star to unlock the next level.</p>
+<p><b>Hints.</b> Training error is easy to push to zero. It is not the score. Look at the gap between blue and orange.</p>
+</div>
+<div class="pane" id="obj"><p>After playing, a learner should be able to:</p><ol>
+<li>Explain <b>underfitting (high bias)</b>: a model too simple to capture the true pattern.</li>
+<li>Explain <b>overfitting (high variance)</b>: a model that memorises noise, so training error is tiny but test error is large.</li>
+<li>Explain why we need a <b>train/test split</b> and why training error is a misleading score.</li>
+<li>Show that <b>more data</b> (a bigger sample) reduces variance and allows flexible models.</li>
+<li>Use <b>L2 regularisation</b> to control complexity, and describe the bias–variance trade-off.</li></ol>
+<p class="lg">Under the hood: real least-squares polynomial regression (Chebyshev basis, ridge penalty, solved with Gaussian elimination) on randomly generated noisy data. Nothing is hard-coded.</p></div>
+<div class="pane" id="pt"><p>Ask 3 to 5 peers to play, then log each one here. Entries are saved in this browser. Copy the CSV at the bottom into your report as evidence.</p>
+<label for="pN">Peer name or initials</label><input type="text" id="pN">
+<label for="pB">Knew overfitting before playing (1 = no idea, 5 = expert)</label><select id="pB"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+<label for="pA">Understand it after playing (1 to 5)</label><select id="pA"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option></select>
+<label for="pF">Fun (1 to 5)</label><select id="pF"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option></select>
+<label for="pS">Their own one-sentence explanation of overfitting</label><input type="text" id="pS">
+<label for="pC">Feedback or confusing parts</label><textarea id="pC" rows="2"></textarea>
+<button id="pAdd">Save playtest</button><button class="alt" id="pClr">Clear log</button>
+<p id="pAvg" class="mut"></p><div class="scroll"><table id="pT"></table></div>
+<label for="pCsv">CSV export (select and copy)</label><textarea id="pCsv" rows="3" readonly></textarea></div>
+</section></main>
+<script>
+const $=id=>document.getElementById(id);
+const rng=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const gauss=r=>Math.sqrt(-2*Math.log(r()+1e-12))*Math.cos(6.283185*r());
+const LAM=[0,.0001,.001,.01,.1,1];
+const L=[
+{name:'Level 1: The straight-line trap',f:x=>1.6*x*x-.6,noise:.15,n0:20,tok:0,lam:false,max:3,
+ story:'A café owner wants to predict sales from the day’s temperature. The real pattern is curved, but a straight line is so tempting.',
+ goal:'Find a model that matches the true pattern. Try the lowest and the highest flexibility and compare.',
+ tip:'Concept: <b>bias</b>. A model that is too simple misses the pattern no matter how much data you give it.'},
+{name:'Level 2: The memoriser',f:x=>Math.sin(3*x),noise:.4,n0:12,tok:0,lam:false,max:3,
+ story:'Only 12 noisy survey answers. A very flexible curve can hit every dot. Is that a good thing?',
+ goal:'Get a test error close to the best possible. Watch how the training error lies to you.',
+ tip:'Concept: <b>variance</b>. A flexible model memorises noise in a small sample, which is overfitting.'},
+{name:'Level 3: Data is power',f:x=>Math.sin(3*x),noise:.4,n0:10,tok:4,lam:false,max:3,
+ story:'Same world, but now you can buy extra measurements. You have 4 tokens, and each one gives 6 new points.',
+ goal:'Spend tokens wisely. Does the best flexibility change as your sample grows?',
+ tip:'Concept: <b>sample size</b>. More data tames variance, so you can afford a more flexible model.'},
+{name:'Level 4: Rein it in',f:x=>Math.sin(4*x)*.8+.3*x,noise:.5,n0:14,tok:0,lam:true,max:3,
+ story:'Regularisation unlocked. It adds a penalty on wild coefficients, like a leash on the curve.',
+ goal:'Keep a high flexibility but raise the penalty. Can you beat the plain low-degree model?',
+ tip:'Concept: <b>L2 regularisation</b>. It trades a little bias for much lower variance.'},
+{name:'Level 5: The noisy oracle',f:x=>Math.sin(5*x)*(.5+.5*x),noise:.5,n0:12,tok:3,lam:true,max:3,
+ story:'Boss round: a tricky pattern, heavy noise, 3 tokens, and every tool unlocked.',
+ goal:'Combine everything you learned: data, flexibility and regularisation.',
+ tip:'Concept: the <b>bias–variance trade-off</b>. Great models balance both, not just one.'}];
+let lv=0,S,stars=[0,0,0,0,0];
+const cv=$('c'),cx=cv.getContext('2d'),c2=$('c2'),cx2=c2.getContext('2d');
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function add(){const D=L[lv],x=S.r()*2-1;S.X.push(x);S.Y.push(D.f(x)+gauss(S.r)*D.noise)}
+function init(retry){const D=L[lv],seed=lv*1000+retry*13+5;
+ S={retry,seed,r:rng(seed),X:[],Y:[],deg:1,li:0,sub:0,tok:D.tok,hist:[],rev:false,tx:null,ty:null,last:null};
+ for(let i=0;i<D.n0;i++)add();
+ $('deg').value=1;$('lam').value=0;$('fb').className='card fb';
+ $('fb').innerHTML='<b>Your turn.</b> Drag the flexibility slider and watch the training error. Then decide when to trust it and submit.';
+ $('curveCard').style.display='none';$('bNext').style.display='none';ui()}
+function basis(x,d){const t=[1,x];for(let k=2;k<=d;k++)t[k]=2*x*t[k-1]-t[k-2];return t.slice(0,d+1)}
+function fit(X,Y,d,lam){const m=d+1,A=Array.from({length:m},()=>new Array(m+1).fill(0)),n=X.length;
+ for(let i=0;i<n;i++){const b=basis(X[i],d);for(let j=0;j<m;j++){for(let k=0;k<m;k++)A[j][k]+=b[j]*b[k];A[j][m]+=b[j]*Y[i]}}
+ for(let j=0;j<m;j++)A[j][j]+=n*lam+1e-9;
+ for(let i=0;i<m;i++){let p=i;for(let r=i+1;r<m;r++)if(Math.abs(A[r][i])>Math.abs(A[p][i]))p=r;[A[i],A[p]]=[A[p],A[i]];
+  for(let r=i+1;r<m;r++){const f=A[r][i]/A[i][i];for(let k=i;k<=m;k++)A[r][k]-=f*A[i][k]}}
+ const c=new Array(m).fill(0);for(let i=m-1;i>=0;i--){let s=A[i][m];for(let k=i+1;k<m;k++)s-=A[i][k]*c[k];c[i]=s/A[i][i]}return c}
+const pred=(c,x)=>{const b=basis(x,c.length-1);let s=0;for(let i=0;i<b.length;i++)s+=c[i]*b[i];return s};
+const mse=(c,X,Y)=>X.reduce((a,x,i)=>a+(pred(c,x)-Y[i])**2,0)/X.length;
+const fmt=v=>v<10?v.toFixed(3):v>999?'999+':v.toFixed(1);
+const cur=()=>fit(S.X,S.Y,S.deg,LAM[S.li]);
+const P=28,W=640,H=340,sx=x=>P+(x+1)/2*(W-2*P),sy=y=>H-P-(y+2.6)/5.2*(H-2*P);
+function draw(){const D=L[lv],c=cur();cx.clearRect(0,0,W,H);
+ cx.strokeStyle=col('--grid');cx.lineWidth=1;
+ for(let g=-2;g<=2;g++){cx.beginPath();cx.moveTo(P,sy(g));cx.lineTo(W-P,sy(g));cx.stroke()}
+ for(let g=-1;g<=1;g+=.5){cx.beginPath();cx.moveTo(sx(g),P);cx.lineTo(sx(g),H-P);cx.stroke()}
+ cx.save();cx.beginPath();cx.rect(P,P/2,W-2*P,H-P*1.5);cx.clip();
+ if(S.rev){cx.strokeStyle=col('--mut');cx.setLineDash([6,5]);cx.lineWidth=2;cx.beginPath();
+  for(let i=0;i<=200;i++){const x=-1+i/100,y=D.f(x);i?cx.lineTo(sx(x),sy(y)):cx.moveTo(sx(x),sy(y))}cx.stroke();cx.setLineDash([]);
+  cx.fillStyle=col('--te');cx.globalAlpha=.45;S.tx.forEach((x,i)=>{cx.beginPath();cx.arc(sx(x),sy(S.ty[i]),2.6,0,7);cx.fill()});cx.globalAlpha=1}
+ cx.strokeStyle=col('--ac');cx.lineWidth=3;cx.beginPath();
+ for(let i=0;i<=240;i++){const x=-1+i/120,y=pred(c,x);i?cx.lineTo(sx(x),sy(y)):cx.moveTo(sx(x),sy(y))}cx.stroke();
+ cx.fillStyle=col('--tr');S.X.forEach((x,i)=>{cx.beginPath();cx.arc(sx(x),sy(S.Y[i]),5,0,7);cx.fill()});cx.restore()}
+function ui(){const D=L[lv],n=S.X.length;
+ $('hLv').textContent='Level '+(lv+1)+' of 5';$('hStars').textContent='Stars: '+stars.reduce((a,b)=>a+b,0)+' / 15';
+ $('hSub').textContent='Submits left: '+(D.max-S.sub);$('hTok').textContent='Data tokens: '+S.tok;
+ $('brief').innerHTML='<h2>'+D.name+'</h2><p>'+D.story+'</p><p><b>Your goal:</b> '+D.goal+'</p>';
+ $('vDeg').textContent=S.deg;$('vLam').textContent=S.li?LAM[S.li]:'off';
+ $('lamBox').style.display=D.lam?'block':'none';
+ $('sTr').textContent=fmt(mse(cur(),S.X,S.Y));$('sTr').style.color=col('--tr');
+ $('sTe').textContent=S.rev?fmt(S.last.te):'?';$('sTe').style.color=col('--te');
+ $('sPar').textContent=(S.deg+1)+' vs '+n;$('sPar').style.color=(S.deg+1>=n)?col('--bad'):'';
+ $('bSub').disabled=S.sub>=D.max;$('bBuy').style.display=D.tok?'inline-block':'none';$('bBuy').disabled=S.tok<1||n>=60;
+ $('bNext').style.display=stars[lv]>=1?'inline-block':'none';$('bNext').textContent=lv==4?'Finish game':'Next level';draw()}
+function change(){S.deg=+$('deg').value;S.li=+$('lam').value;S.rev=false;ui()}
+$('deg').oninput=$('lam').oninput=change;
+$('bBuy').onclick=()=>{S.tok--;for(let i=0;i<6;i++)add();S.rev=false;ui();
+ fb('',`<b>You collected 6 more points.</b> You now have ${S.X.length}. Slide flexibility up again and see whether a wigglier curve is safe now.`)};
+$('bNew').onclick=()=>init(S.retry+1);
+function fb(cls,html){$('fb').className='card fb '+cls;$('fb').innerHTML=html}
+$('bSub').onclick=()=>{const D=L[lv];if(S.sub>=D.max)return;S.sub++;
+ const r=rng(S.seed*31+S.sub);S.tx=[];S.ty=[];
+ for(let i=0;i<150;i++){const x=r()*2-1;S.tx.push(x);S.ty.push(D.f(x)+gauss(r)*D.noise)}
+ const c=cur(),tr=mse(c,S.X,S.Y),te=mse(c,S.tx,S.ty);let best=1e9;
+ for(let d=0;d<=15;d++)for(let l=0;l<(D.lam?6:1);l++)best=Math.min(best,mse(fit(S.X,S.Y,d,LAM[l]),S.tx,S.ty));
+ const q=best/te,st=q>=.85?3:q>=.7?2:q>=.5?1:0,gap=te/tr,nv=D.noise**2;
+ S.rev=true;S.last={tr,te,best,st};S.hist.push({d:S.deg,li:S.li,te,st});stars[lv]=Math.max(stars[lv],st);
+ let cls,msg;
+ if(te>1.3*best&&gap>2.2){cls='over';msg=`<b>Overfitting.</b> Training error was only ${fmt(tr)} but test error was ${fmt(te)}, about ${gap.toFixed(1)}× worse. Your curve chased noise (high variance). Try less flexibility, more data or a stronger penalty.`}
+ else if(te>1.3*best){cls='under';msg=`<b>Underfitting.</b> Even on its own training data the curve is off (${fmt(tr)}). It is too rigid to follow the real pattern (high bias). Add flexibility.`}
+ else{cls='good';msg=`<b>Well balanced.</b> Test error ${fmt(te)} is close to the best achievable here (${fmt(best)}). Noise alone keeps error near ${fmt(nv)}.`}
+ fb(cls,msg+`<br>Score: ${'★'.repeat(st)||'no stars'} (${Math.round(q*100)}% of the best possible).<br><span class="lg">${D.tip}</span>`);
+ ui();curve()};
+function curve(){const D=L[lv],W2=640,H2=220,p=34;cx2.clearRect(0,0,W2,H2);$('curveCard').style.display='block';
+ const trs=[],tes=[];for(let d=0;d<=15;d++){const c=fit(S.X,S.Y,d,LAM[S.li]);trs.push(mse(c,S.X,S.Y));tes.push(mse(c,S.tx,S.ty))}
+ const lo=-3,hi=1,ly=v=>H2-p/1.2-(Math.min(hi,Math.max(lo,Math.log10(v+1e-12)))-lo)/(hi-lo)*(H2-p*1.6),lx=d=>p+d/15*(W2-2*p);
+ cx2.strokeStyle=col('--grid');cx2.fillStyle=col('--mut');cx2.font='11px sans-serif';
+ for(let e=lo;e<=hi;e++){cx2.beginPath();cx2.moveTo(p,ly(10**e));cx2.lineTo(W2-p,ly(10**e));cx2.stroke();cx2.fillText('1e'+e,2,ly(10**e)+4)}
+ for(let d=0;d<=15;d+=3)cx2.fillText(d,lx(d)-3,H2-6);
+ cx2.fillText('degree',W2-p-30,H2-18);
+ [[trs,'--tr'],[tes,'--te']].forEach(([a,k])=>{cx2.strokeStyle=col(k);cx2.lineWidth=3;cx2.beginPath();a.forEach((v,d)=>d?cx2.lineTo(lx(d),ly(v)):cx2.moveTo(lx(d),ly(v)));cx2.stroke()});
+ cx2.setLineDash([4,4]);cx2.strokeStyle=col('--ac');cx2.lineWidth=2;cx2.beginPath();cx2.moveTo(lx(S.deg),p/2);cx2.lineTo(lx(S.deg),H2-p);cx2.stroke();cx2.setLineDash([]);
+ $('hist').innerHTML='<p class="lg">Your submits this level:</p>'+S.hist.map((h,i)=>`<span class="chip">#${i+1}: degree ${h.d}${h.li?', λ '+LAM[h.li]:''}, test ${fmt(h.te)} ${'★'.repeat(h.st)||'–'}</span>`).join('')}
+$('bNext').onclick=()=>{if(lv<4){lv++;init(0);window.scrollTo({top:0,behavior:'smooth'})}else{
+ const t=stars.reduce((a,b)=>a+b,0);fb('good',`<b>Quest complete: ${t} of 15 stars.</b> ${t>=13?'You think like a data scientist.':t>=9?'Strong instincts. Replay levels to chase 3 stars.':'Replay the levels. Reshuffle the data and compare what changes.'}<br>Key takeaways: training error lies, simple models have bias, flexible models have variance, more data and regularisation both help, and the goal is generalisation. Now log your playtests below.`);$('bNext').style.display='none'}};
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button,.pane').forEach(e=>e.classList.remove('on'));b.classList.add('on');$(b.dataset.t).classList.add('on')});
+let PT=[];try{PT=JSON.parse(localStorage.getItem('cq_pt')||'[]')}catch(e){}
+function ptRender(){const g=PT.length?PT.reduce((a,p)=>a+(p.a-p.b),0)/PT.length:0;
+ $('pAvg').textContent=PT.length?`${PT.length} playtests. Average self-rated understanding gain: ${g>=0?'+':''}${g.toFixed(1)} points. Average fun: ${(PT.reduce((a,p)=>a+p.f,0)/PT.length).toFixed(1)} / 5.`:'No playtests logged yet.';
+ $('pT').innerHTML='<tr><th>Peer</th><th>Before</th><th>After</th><th>Fun</th><th>Their explanation</th></tr>'+PT.map(p=>`<tr><td>${esc(p.n)}</td><td>${p.b}</td><td>${p.a}</td><td>${p.f}</td><td>${esc(p.s)}</td></tr>`).join('');
+ $('pCsv').value='name,before,after,fun,explanation,feedback\n'+PT.map(p=>[p.n,p.b,p.a,p.f,p.s,p.c].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n')}
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+function ptSave(){try{localStorage.setItem('cq_pt',JSON.stringify(PT))}catch(e){}}
+$('pAdd').onclick=()=>{PT.push({n:$('pN').value||'anon',b:+$('pB').value,a:+$('pA').value,f:+$('pF').value,s:$('pS').value,c:$('pC').value});ptSave();ptRender();['pN','pS','pC'].forEach(i=>$(i).value='')};
+$('pClr').onclick=()=>{PT=[];ptSave();ptRender()};
+ptRender();init(0);
+</script></body></html>
